@@ -1,0 +1,162 @@
+---
+title: "Assignment_1"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## R Markdown
+
+This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
+
+When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
+
+```{r cars}
+summary(cars)
+```
+
+## Including Plots
+
+You can also embed plots, for example:
+
+```{r pressure, echo=FALSE}
+plot(pressure)
+```
+
+Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
+
+# 2.1 Use the help function to explore what the series gold , woolyrnq and gas represent
+
+help(gold)
+help(woolyrnq)
+help(gas)
+
+#2.1 a. Use autoplot() to plot each of these in separate plots.
+
+autoplot(gold)
+autoplot(woolyrnq)
+autoplot(gas)
+
+help(gold)
+
+autoplot(gold) + ggtitle('Daily morning gold prices in US dollars. 1 January 1985 – 31 March 1989.') + xlab('Day') + ylab('Gold Price in USD')
+
+help(woolyrnq)
+
+autoplot(woolyrnq) + ggtitle('Quarterly production of woollen yarn in Australia: tonnes. Mar 1965 – Sep 1994.') + xlab('Quarter') + ylab('Tonnes')
+
+
+help(gas)
+
+autoplot(gas) + ggtitle('Australian monthly gas production: 1956–1995.') + xlab('Years') + ylab('Gas Production')
+
+#b. What is the frequency of each series? Hint: apply the frequency() function.
+
+print('frequency')
+frequency(gold)
+frequency(woolyrnq)
+frequency(gas)
+
+str(gold)
+
+#C Use which.max() to spot the outlier in the gold series. Which observation was it?
+
+which.max(gold)
+
+print("What was the gold's maximum value?")
+gold[which.max(gold)]
+
+#2. Download the file tute1.csv from the book website, open it in Excel (or some other #spreadsheet application), and review its contents. You should find four columns of #information. Columns B through D each contain a quarterly series, labelled Sales, #AdBudget and GDP. Sales contains the quarterly sales for a small company over the period #1981-2005. AdBudget is the advertising budget and GDP is the gross domestic product. All #series have been adjusted for inflation.#
+
+#2.2 a. You can read the data into R with the following script:
+tute1 <- read.csv("http://otexts.com/fpp2/extrafiles/tute1.csv", header=TRUE)
+View(tute1)
+
+#b. Convert the data to time series
+
+mytimeseries <- ts(tute1[,-1], start=1981, frequency=4)
+
+#c. Construct time series plots of each of the three series
+
+autoplot(mytimeseries, facets=TRUE)
+
+# Check what happens when you don’t include facets=TRUE.
+
+autoplot(mytimeseries)
+
+##The three plots will share one scale in the y-axis.
+
+# 3. Download some monthly Australian retail data from the book website. These represent retail sales in various categories for different Australian states, and are stored in a MS-Excel file.#
+
+#3. a You can read the data into R with the following script:
+# The second argument (skip=1) is required because the Excel sheet has two header rows.
+
+retaildata <- readxl::read_excel("retail.xlsx", skip=1)
+
+#b. Select one of the time series as follows (but replace the column name with your own chosen column): #
+
+myts <- ts(retaildata[,"A3349873A"], frequency=12, start=c(1982,4))
+
+myts <- ts(retaildata[,"A3349401C"], frequency=12, start=c(1982,4))
+
+#c. Explore your chosen retail time series using the following functions:
+#autoplot(), ggseasonplot(), ggsubseriesplot(), gglagplot(), ggAcf()
+#Can you spot any seasonality, cyclicity and trend? What do you learn about the series?#
+
+autoplot(myts) + ggtitle('Autoplot')
+
+ggseasonplot(myts) + ggtitle('GGseasonPlot')
+
+ggsubseriesplot(myts) + ggtitle('Seasonal Subseries Plot')
+
+gglagplot(myts) + ggtitle('Lag Plot')
+
+ggAcf(myts) + ggtitle('Autocorrelation')
+
+##From the autoplot, we can see a clear seasonal or cyclic pattern in the time series, and a upward trend. The seasonal plot shows that there is indeed a seasonal patterns. Also, the plot reveals that each year there is a typical large jump in the month of December, and a decrease in the month of February. The seasonal subseries plot shows there are several years where the time series see sharp declines, although the general trend is upward increasing and the trend typically recovers after the decline. The lag plot shows that the lags from 1 through 16 are all highly and positively correlated, especially in lag 12; and the autocorrelation plot confirms this observation
+
+#2.6 Use the following graphics functions: autoplot(), ggseasonplot(), ggsubseriesplot(), #gglagplot(), ggAcf() and explore features from the following time series: hsales, usdeaths, #bricksq, sunspotarea, gasoline.#
+#Can you spot any seasonality, cyclicity and trend?
+
+autoplot(hsales)
+ggseasonplot(hsales)
+ggsubseriesplot(hsales)
+gglagplot(hsales)
+ggAcf(hsales)
+
+##For the hsales time series, it seems there is a seasonal pattern in each year. There are generally a jump in sales in the month of March, and decline from that point though the year. Looking at the autoplot of the entire series over all the years, there is not a clear trend, but a cyclic rise and fall pattern can be observed. The lag plot and the autocorellation plot show that lag 2 and lag 2 have the highest correlation, and the correlation is positive.
+
+autoplot(usdeaths)
+ggseasonplot(usdeaths)
+ggsubseriesplot(usdeaths)
+gglagplot(usdeaths)
+ggAcf(usdeaths)
+
+##For the usdeaths time series, there is a clear seasonal pattern. The deaths are generally lowest in the month of February each year, then rises to the peak in the month of July, then decrease after. The subseries plot shows that the death is decreasing over the years. The lag and autocorrelation plots show that lag 2 and lag 12 have the highest positive correlation with the time series, while lag 6 and 18 have the highest negative correlation.
+
+
+autoplot(bricksq)
+ggseasonplot(bricksq)
+ggsubseriesplot(bricksq)
+gglagplot(bricksq)
+ggAcf(bricksq)
+
+##For the bricksq time series, there is a clear upward trend in the data. The seaonal plot shows a pattern that the series typically peaks on the 3rd quarter. The subseries plot shows that the quarterly time series are increasing in the yeras before about 1975, then the increasing trend seems to stagnate afterward, and seems to turn into more cyclic in nature. The lag plot and autocorrelation plot show that only positive autocorrelation can be observed for the lags.
+
+autoplot(sunspotarea)
+ggseasonplot(sunspotarea)
+ggsubseriesplot(sunspotarea)
+gglagplot(sunspotarea)
+ggAcf(sunspotarea)
+
+##For the sunspotarea time series, seasonal plots cannot be created because the data was recorded annually only. The autoplot shows a clear cyclic pattern. The autocorrelation plot and the lag plot show both positive and negative autocorrelations. High positive autocorrelation can be found in lag 10 and 11, while high negative autocorrelation was observed on lag 5 and 16.
+
+autoplot(gasoline)
+ggseasonplot(gasoline)
+ggsubseriesplot(gasoline)
+gglagplot(gasoline)
+ggAcf(gasoline)
+
+#For the gasoline time series, there is a clear upward trend in the years before 2008, and the trend seems to level off and seems to turn into more cyclic afterward. The seasonal plot does not seem to reveal a clear seasonal pattern here, and the subseries plot cannot be made because the time series is weekly. The lag and autocorrelation plot shows strong autocorrelation in pretty much all of the lags calculate.
