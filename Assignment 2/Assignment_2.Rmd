@@ -1,0 +1,206 @@
+---
+title: "Assignment_2"
+output: html_document
+author: Jatin Jain
+---
+*__Data 624 - Predictive Analytics__*
+
+*__Chapter 3__*
+
+```{r}
+library(fpp2)
+
+library(forecast)
+```
+
+
+
+
+## 3.1 For the following series, find an appropriate Box-Cox transformation in order to stabilise the variance.
+
+* usnetelec
+* usgdp
+* mcopper
+* enplanements
+
+
+*__usnetelec__*
+
+```{r}
+help(usnetelec)
+```
+
+```{r}
+autoplot(usnetelec) + ylab("Annual US Electricity Generation (billion kWh)") +  ggtitle("Annual US Net Electricity Generation")
+```
+
+```{r}
+lambda_usnetelec <- BoxCox.lambda(usnetelec)
+lambda_usnetelec
+```
+
+```{r}
+autoplot(BoxCox(usnetelec,lambda_usnetelec)) +  ggtitle("Box Cox Transformation of Annual US Net Electricity Generation")
+```
+
+
+*__usgdp__*
+
+```{r}
+autoplot(usgdp) + ylab("Quarterly US GDP") +  ggtitle("Quarterly US GDP")
+```
+
+```{r}
+lambda_usgdp <- BoxCox.lambda(usgdp)
+lambda_usgdp
+```
+
+```{r}
+autoplot(BoxCox(usgdp,lambda_usgdp)) +  ggtitle("Box Cox Transformation of Quarterly US GDP")
+```
+
+*__mcopper__*
+
+```{r}
+autoplot(mcopper) + ylab("Monthly Copper Prices") +  ggtitle("Monthly Copper Prices")
+```
+
+```{r}
+lambda_mcopper <- BoxCox.lambda(mcopper)
+lambda_mcopper
+```
+
+```{r}
+autoplot(BoxCox(mcopper,lambda_mcopper)) +  ggtitle("Box Cox Transformation of Monthly Copper Prices")
+```
+
+
+*__enplanements__*
+
+```{r}
+autoplot(enplanements) + ylab("Domestic Revenue Enplanements (millions)") +  ggtitle("Monthly US Domestic Revenue from People Boarding Airplanes")
+```
+
+```{r}
+lambda_enplanements <- BoxCox.lambda(enplanements)
+lambda_enplanements
+```
+
+```{r}
+autoplot(BoxCox(enplanements,lambda_enplanements)) +  ggtitle("Box Cox Transformation of Monthly US Domestic Revenue from People Boarding Airplanes")
+```
+
+## 3.2 Why is a Box-Cox transformation unhelpful for the cangas data?
+
+```{r}
+help(cangas)
+```
+
+```{r}
+autoplot(cangas) + ylab("Monthly Canadian Gas Production (billions of cubic meters)") +  ggtitle("Canadian Gas Production")
+```
+
+```{r}
+lambda_cangas <- BoxCox.lambda(cangas)
+lambda_cangas
+```
+
+```{r}
+autoplot(BoxCox(cangas,lambda_cangas)) +  ggtitle("Box Cox Transformation of Canadian Gas Production")
+```
+
+#### * Box Cox Transformation doesn't seem to have an effect on the cangas data due to the dependency on lambda. 
+#### * The plot of monthly Canadian gas production displays a seasonality of 1 year and a seasonal variance that is relatively low from 1960 through 1978, larger from 1978 through 1988 and smaller from 1988 through 2005. Because the seasonal variation increases and then decreases, the Box Cox transformation cannot be used to make the seasonal variation uniform.
+
+## 3.3 What Box-Cox transformation would you select for your retail data (from Exercise 3 in Section 2.10)?
+
+```{r}
+retaildata <- readxl::read_excel("retail.xlsx", skip=1)
+```
+
+```{r}
+myts <- ts(retaildata[,"A3349873A"], frequency=12, start=c(1982,4))
+```
+
+```{r}
+autoplot(myts)
+```
+
+```{r}
+lambda_retail <- BoxCox.lambda(myts)
+lambda_retail
+```
+
+```{r}
+autoplot(BoxCox(myts,lambda_retail)) + ggtitle("Box Cox Transformation of Australian Retail")
+```
+
+#### Even though the logarithmic transformation (with λ=0) is an improvement, the transformation with a low-value lambda (λ=0.1276369) is slightly better, since it also better straightens the trend line of the data.
+
+## 3.8 For your retail time series (from Exercise 3 in Section 2.10):
+
+### a. Split the data into two parts using
+
+```{r}
+myts.train <- window(myts, end=c(2010,12))
+myts.test <- window(myts, start=2011)
+```
+
+#### This creates a training set that ends in December of 2010 and a testing set that begins in 2011.
+
+### b. Check that your data have been split appropriately by producing the following plot.
+
+```{r}
+autoplot(myts) +
+  autolayer(myts.train, series="Training") +
+  autolayer(myts.test, series="Test")
+```
+
+#### The training set is shown in blue up until 2011, which is where the testing set, shown in red, is visible.
+
+### c. Calculate forecasts using snaive applied to myts.train.
+
+```{r}
+fc <- snaive(myts.train)
+fc
+```
+#### Forecast were made using Seasonal Naive method
+
+### d. Compare the accuracy of your forecasts against the actual values stored in myts.test.
+
+```{r}
+accuracy(fc,myts.test)
+```
+
+### e. Check the residuals.Do the residuals appear to be uncorrelated and normally distributed?
+
+```{r}
+checkresiduals(fc)
+```
+
+#### The decrease of LAG suggests coorelation and no, the residuals don’t appear to be normally distributed.
+
+### f. How sensitive are the accuracy measures to the training/test split?
+
+#### In order to check that, performed the forecasts multiple times, each time using different year to split the data, and the accuracies are calculated below.
+
+```{r}
+sen <- function(split_year){
+  trainset <- window(myts, end=c(split_year, 12))
+  testset <- window(myts, start=split_year+1)
+  acc <- accuracy(snaive(trainset), testset)
+  return(acc)
+}
+
+splits <- c(2000:2011)
+accs <- data.frame()
+for (year in splits){
+  acc <- sen(year)
+  temp <- data.frame(t(acc[2,c(1:6)]))
+  accs <- rbind(accs, temp)
+}
+row.names(accs) <- splits
+accs
+```
+
+#### It is apparent here that the accuracy measures are very sensitive to the split. For example, if we use Dec 2004 to split the data, i.e. using data from Apr 1982 to Dec 2004 to train and make forecast on data from Jan 2005 to Dec 2006, the accuracy will be very good. The MAPE is only 2.1%, which means that on average the forecast is just 2.1% off. But if we pick Dec 2010 to do the split, the accuracy will be very bad, with a MAPE of 15.1%.
