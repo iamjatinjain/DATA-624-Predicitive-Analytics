@@ -1,0 +1,147 @@
+---
+title: "Assignment 3"
+author: "Jatin Jain"
+
+output: html_document
+---
+
+*__Data 624 - Predictive Analytics__*
+
+*__Chapter 6__*
+
+
+
+```{r}
+library(fpp2)
+library(seasonal)
+library(seasonalview)
+```
+
+## 6.2 The plastics data set consists of the monthly sales (in thousands) of product A for a plastics manufacturer for five years.
+
+### a. Plot the time series of sales of product A. Can you identify seasonal fluctuations and/or a trend-cycle?
+
+```{r}
+help(plastics)
+```
+
+```{r}
+plastics
+```
+
+```{r}
+autoplot(plastics) + ggtitle('Plastics Product A Monthly Sales') + ylab('Sales in Thousands') + xlab('Year')
+```
+
+
+```{r}
+ggseasonplot(plastics) + ggtitle('Seasonal plot: Plastics Product A Sales')
+```
+
+```{r}
+ggsubseriesplot(plastics) + ggtitle('Seasonal subseries plot: Plastics Product A Sales')
+```
+
+
+#### * There is definitely a seasonal pattern here. The sales typically are the lowest in February, and then the sales start to increase until it reach a maximum around the months of June through October. And the sales then decline after that. There is also a noticeable increasing trend through the years.
+
+
+### b. Use a classical multiplicative decomposition to calculate the trend-cycle and seasonal indices.
+
+```{r}
+plastics.decomp <- decompose(plastics, type='multiplicative')
+plastics.decomp$trend
+```
+
+```{r}
+plastics.decomp$seasonal
+```
+
+```{r}
+autoplot(plastics.decomp)
+```
+
+
+### c. Do the results support the graphical interpretation from part a?
+
+#### * Yes. There is an apparent seasonal pattern and a increasing trend. There is a slight trend drop off in the 1st half of year 5, and the remainder plot suggests that the trend-cycle estimate underestimated after year 5.
+
+### d. Compute and plot the seasonally adjusted data.
+
+```{r}
+plastics.sadj <- plastics / plastics.decomp$seasonal 
+autoplot(plastics.sadj, series='Seasonally Adjusted ') +
+  autolayer(plastics, series='Data') + ggtitle('Plastics Product A Monthly Sales') +
+  ylab('Sales in Thousands') + xlab('Year')
+```
+
+
+### f. Change one observation to be an outlier (e.g., add 500 to one observation), and recompute the seasonally adjusted data. What is the effect of the outlier?
+
+```{r}
+plastics.out <- plastics
+plastics.out[30] <- 500
+plastics.out.decomp <- decompose(plastics.out, type='multiplicative')
+plastics.out.sadj <- plastics.out / plastics.out.decomp$seasonal
+
+autoplot(plastics.out.sadj, series='Seasonally Adjusted ') +
+  autolayer(plastics.out, series='Data') + 
+  ggtitle('Plastics Product A Monthly Sales with an Outlier') +
+  ylab('Sales in Thousands') +
+  xlab('Year')
+```
+
+```{r}
+autoplot(plastics.out.decomp)
+```
+  
+#### * Changed the sales data in the 3rd year in the month of June from 1326 to 500.  
+#### * The outlier introduces a dip in the seasonal pattern in the month of June and a region of depression in the trend pattern 6 months before and after the month of June in year 3. The remainder plot also registers this large outlier.
+
+### f. Does it make any difference if the outlier is near the end rather than in the middle of the time series?
+
+#### * Introduced the outlier at the end of the 3rd year, instead of the middle.
+
+```{r}
+plastics.out <- plastics
+plastics.out[36] <- 500
+plastics.out.decomp <- decompose(plastics.out, type='multiplicative')
+plastics.out.sadj <- plastics.out / plastics.out.decomp$seasonal
+
+autoplot(plastics.out.sadj, series='Seasonally Adjusted ') +
+  autolayer(plastics.out, series='Data') + 
+  ggtitle('Plastics Product A Monthly Sales with an Outlier') +
+  ylab('Sales in Thousands') +
+  xlab('Year')
+```
+
+```{r}
+autoplot(plastics.out.decomp)
+```  
+
+#### * It changes the location of the dip in the seaonal pattern and the depression region in the trend. Overall, the effects still exist and just changes in magnitude.  
+
+
+## 6.3 Recall your retail time series data (from Exercise 3 in Section 2.10). Decompose the series using X11. Does it reveal any outliers, or unusual features that you had not noticed previously?
+
+```{r}
+retaildata <- readxl::read_excel("retail.xlsx", skip=1)
+myts <- ts(retaildata[,"A3349873A"],
+  frequency=12, start=c(1982,4))
+myts.decomp <- seas(myts, x11='')
+```
+
+```{r}
+autoplot(myts.decomp) +
+  ggtitle('Decomposition of Retrail Time Series A3349873A')
+```
+
+```{r}
+autoplot(myts, series='Data') +
+  autolayer(trendcycle(myts.decomp), series='Trend') +
+  autolayer(seasadj(myts.decomp), series='Seasonally Adjusted')
+```
+
+#### * Yes, it does reveal outliers. For example, in the first month of 2000, there is a drop in the trend pattern, which can be spot in the remainder plot. This was not noticed previously. Also, from the seasonal pattern plot, it seems that the seasonal variation slowly decrease over time, which was not noticed previously. The X11 was able to capture this decrease variation, where the classical decomposition will not since it assumes constant seasonal component.  
+  
+  
