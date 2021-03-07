@@ -1,0 +1,259 @@
+---
+title: "Assignment 4"
+author: "Jatin Jain"
+date: "3/6/2021"
+output: html_document
+---
+
+*__Data 624 - Predictive Analytics__*
+
+*__Chapter 3__*
+
+
+```{r}
+library(corrplot)
+library(dplyr)
+library(gridExtra)
+library(Amelia)
+library(plotly)
+library(DataExplorer)
+library(GGally)
+library(psych)
+library(caret)
+library(summarytools)
+
+library (e1071)
+```
+
+## 3.1 The UC Irvine Machine Learning Repository6 contains a data set related to glass identification. The data consist of 214 glass samples labeled as one of seven class categories. There are nine predictors, including the refractive index and percentages of eight elements: Na, Mg, Al, Si, K, Ca, Ba, and Fe. The data can be accessed via:
+
+
+```{r}
+library(mlbench)
+data(Glass)
+str(Glass)
+```
+
+
+### (a) Using visualizations, explore the predictor variables to understand their distributions as well as the relationships between predictors.
+
+```{r}
+corr <- Glass %>% subset(select=-c(Type)) %>% cor(use='pairwise.complete.obs')
+corrplot.mixed(corr, upper='square', lower.col = "black")
+```
+
+```{r}
+glass <- subset(Glass, select = -Type)
+predictors <- colnames(glass)
+```
+
+```{r}
+par(mfrow = c(3, 3))
+for(i in 1:9) {
+  hist(glass[,i], main = predictors[i])
+}
+```
+
+```{r}
+par(mfrow=c(3,3))
+for(var in names(Glass)[-10]){
+  boxplot(Glass[var], main=paste('Boxplot of', var), horizontal = T)
+}
+```
+
+
+### (b) Do there appear to be any outliers in the data? Are any predictors skewed?
+
+#### * From the the boxplot, it appears that all of the predictors, except Mg, have outliers.
+#### * From the histogram, it seems that the variables Ba, Mg, K, Ca, and Fe are heavily skewed.
+
+### The skewness value can be calculated to confirm:
+
+```{r}
+describe(Glass)
+```
+
+### The skewness value can be calculated to confirm:
+
+```{r}
+Glass[-10] %>% apply(2, skewness) %>% sort(decreasing=T)
+```
+
+```{r}
+
+p <- describe(Glass[,1:9])
+
+ggplot(p,aes(x = row.names(p),y=skew))+
+  geom_bar(stat='identity') +
+  ggtitle("Glass - Skewness")
+```
+
+### (c) Are there any relevant transformations of one or more predictors that might improve the classification model?
+
+```{r}
+trans <- preProcess(Glass[-10], method=c('BoxCox', 'center', 'scale'))
+transformed <- predict(trans, Glass[-10])
+
+par(mfrow=c(3,3))
+for(var in names(transformed)[-10]){
+  boxplot(transformed[var], main=paste('Boxplot of', var), horizontal = T)
+}
+```
+
+```{r}
+transformed %>% apply(2, skewness) %>% sort(decreasing=T)
+```
+
+#### * The centering and scaling did the job of bringing the mean to 0 and standard deviation to 1.
+#### * It appears that the Box-Cox transformation has improved the skewness of Ca, Al, and Na. It was not effective in reducing the skewness for other predictors having heavier skewness.
+
+#### * For some predictors having high count of zero value, such as Ba and Fe, the skewness may be due to these zeros. It might be beneficial to include an engineered binary feature that identifies if the predictor is zero or non-zero, and apply Box-Cox transform to only the non-zero values of these predictors.
+
+#### * After performaning the filtered transformation, the skewness of Ba and Fe are significantly reduced:
+
+```{r}
+reduce_skew <- function(vec){
+  trans <- vec[vec!=0] %>% BoxCoxTrans() %>% predict(vec[vec!=0])
+  return(skewness(trans))
+}
+```
+
+```{r}
+paste('The skewness of Ba is now:', reduce_skew(Glass$Ba))
+```
+
+```{r}
+paste('The skewness of Fe is now:', reduce_skew(Glass$Fe))
+```
+
+## 3.2. The soybean data can also be found at the UC Irvine Machine Learning Repository. Data were collected to predict disease in 683 soybeans. The 35 predictors are mostly categorical and include information on the environmen- tal conditions (e.g., temperature, precipitation) and plant conditions (e.g., left spots, mold growth). The outcome labels consist of 19 distinct classes.
+
+### The data can be loaded via:
+
+```{r}
+library(mlbench)
+data(Soybean)
+```
+### (a) Investigate the frequency distributions for the categorical predictors. Are any of the distributions degenerate in the ways discussed earlier in this chapter?
+
+#### * The variable with degenrate distributions is a variable with “zero-variance” issue, that satisfies both following conditions:
+
+#### - The fraction of unique values over the sample size is low (say 10%).
+#### - The ratio of the frequency of the most prevalent value to the frequency of the second most prevalent value is large (say around 20).
+
+```{r}
+nearZeroVar(Soybean)
+```
+
+```{r}
+paste('The degenerate variables are:', paste(names(Soybean[,nearZeroVar(Soybean)]), collapse = ', '))
+```
+
+```{r}
+summary(Soybean[19])
+```
+
+#### For the leaf.mild variable, the factin of unique value over the sample size is 3/683=0.4% < 10%, and the ratio of the most prevalent value to the 2nd most prevalent value is 535/20=26.75 > 20.
+
+```{r}
+summary(Soybean[26])
+```
+
+#### For the mycelium variable, the factin of unique value over the sample size is 2/683=0.3% < 10%, and the ratio of the most prevalent value to the 2nd most prevalent value is 639/6=106.5 > 20.
+
+```{r}
+summary(Soybean[28])
+```
+#### For the sclerotia variable, the factin of unique value over the sample size is 2/683=0.3% < 10%, and the ratio of the most prevalent value to the 2nd most prevalent value is 625/20=31.25 > 20.
+
+### (b) Roughly 18 % of the data are missing. Are there particular predictors that are more likely to be missing? Is the pattern of missing data related to the classes?
+
+#### The count of missing values in each variables are found below:
+
+```{r}
+nas <- Soybean[-1] %>% apply(2, is.na) %>% apply(2, sum, na.rm=T)
+nas <- sort(nas, decreasing=T)
+nas
+```
+
+#### Below, a table is constructed to show the relationship of the missing data to the classes. The table is constructed as following:
+
+#### 1. Select the predictor variable
+#### 2. Find the row indices where the predictor has missing values
+#### 3. Select these rows
+#### 4. Count the number of occurrence in each class of the target variable
+#### 5. Repeat 1~4 for each predictor variable
+
+```{r}
+library(kableExtra)
+```
+
+```{r}
+t_list <- list()
+i <- 0
+for (var in names(Soybean[-1])) {
+  i <- i +1
+  row_id <- which(is.na(Soybean[,var]))
+  temp <- Soybean[row_id,'Class']
+  t_list[[i]] <- as.matrix(table(temp))
+}
+df <- data.frame(do.call(cbind, t_list))
+names(df) <- names(Soybean[-1])
+df <- df[names(nas)]
+df <- t(df)
+kable(df) %>% 
+ kable_styling(bootstrap_options = c("striped", "hover", "condensed", "responsive")) %>% 
+ scroll_box(width='100%', height = "500px")
+```
+
+#### Here, the columns are the classes of the target variable, and the rows are the predictors. The numbers are the count of missing values for the predictors.
+
+#### From this table, it seems that some predictors have same rows with missing values, and the same distribution of classes. Furthere, these predictors’ missing values are biased toward the class phytophthorarot. For example, for the predictor hail, out of the 121 missing values, 68 (56%) of them are phytophthorarot. This indicates “informative missingness”, which can induce significant bias in the model.
+
+
+### (c) Develop a strategy for handling missing data, either by eliminating predictors or imputation.
+
+#### Based on the table above, I will eliminate the rows with missing values that have high bias toward the class phytophthorarot. This will remove roughly 68 rows.
+
+```{r}
+# Mark the rows that has missing values and has the class being "phytophthora-rot"
+eliminate <- (!complete.cases(Soybean)) & ifelse(Soybean$Class=='phytophthora-rot', 1, 0)
+
+# Eliminate those rows
+Soybean.a <- Soybean[!eliminate,]
+
+paste('Eliminated', sum(eliminate), 'rows.')
+```
+
+```{r}
+paste(sum(!complete.cases(Soybean.a)), 'rows still contain missing values.')
+```
+
+```{r}
+fill_na <- function(df){
+  for (i in 2:dim(df)[2]){
+    paste('Filling', sum(is.na(df[,i])), 'missing values for feature: ', names(df)[i], '.') %>% print()
+    find.mode <- df[,i] %>% table() %>% sort(decreasing = T) %>% prop.table() %>% round(4)
+    mode.name <- find.mode %>%  names() %>% .[1]
+    paste('The most frequent factor of this feature is:', mode.name, ', which is', find.mode[mode.name]*100, '% of the class.') %>% print()
+    df[is.na(df[,i]), i] <- mode.name
+    paste('------------------------------------------------') %>% print()
+  }
+  return(df)
+}
+
+Soybean.b <- fill_na(Soybean.a)
+```
+
+
+#### Now all missing values are filled.
+
+```{r}
+paste('There are now', dim(Soybean.b)[1], 'rows.', sum(!complete.cases(Soybean.b)), 'rows have missing values.')
+```
+
+```{r}
+Soybean.b %>%
+  arrange(Class) %>%
+  missmap(main = "Missing vs Observed")
+```
