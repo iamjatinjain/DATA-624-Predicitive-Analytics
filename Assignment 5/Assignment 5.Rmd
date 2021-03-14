@@ -1,0 +1,433 @@
+---
+title: "Assignment 5"
+author: "Jatin Jain"
+output: html_document
+---
+*__Data 624 - Predictive Analytics__*
+
+*__Chapter 7__*
+
+
+### 7.1 Consider the pigs series — the number of pigs slaughtered in Victoria each month.
+#### a. Use the ses() function in R to find the optimal values of  α and  ℓ~0~, and generate forecasts for the next four months.
+```{r}
+library(fpp2)
+
+```
+
+```{r}
+help(pigs)
+```
+
+```{r}
+fc <- ses(pigs, h=4)
+summary(fc)
+```
+
+#### So the α is 0.2971 and ℓ~0~ is 77260.0561.
+
+#### b. Compute a 95% prediction interval for the first forecast using  ^y ± 1.96s where s is the standard deviation of the residuals. Compare your interval with the interval produced by R.
+
+```{r}
+fcpt <- 98816.41
+s <- sd(residuals(fc))
+paste('Point forecst:', fcpt)
+```
+
+```{r}
+paste('Lo 95:', fcpt - 1.96 * s)
+```
+
+```{r}
+paste('Hi 95', fcpt + 1.96 * s)
+```
+
+#### It seems the interval calculated by the R is slightly wider than the one calculated by the formula above. The lower 95% interval limit is higher than R’s lower limit, and the upper limit is lower than R’s upper limit. The different is about 68 on both + and - sides.
+
+### 7.5 Data set books contains the daily sales of paperback and hardcover books at the same store. The task is to forecast the next four days’ sales for paperback and hardcover books.
+
+#### a. Plot the series and discuss the main features of the data.
+```{r}
+help(books)
+```
+
+```{r}
+autoplot(books) + 
+  ggtitle('Sales of Books at a Store') +
+  xlab('Day') +
+  ylab('Books Sold')
+```
+
+#### It appears that both time series (paperback and hardcover) are cyclic and the sales are trending upward. There is no apparent seasonal pattern. Hardcovers sell generally better than paperback.
+
+#### b. Use the ses() function to forecast each series, and plot the forecasts.
+
+```{r}
+sesfitp <- ses(books[,1])
+sesfith <- ses(books[,2])
+summary(sesfitp)
+```
+
+```{r}
+autoplot(sesfitp) +
+  autolayer(fitted(sesfitp), series='Fitted') +
+  ggtitle('SES Fit and Forecast of Paperback Sales') +
+  xlab('Day') +
+  ylab('Books Sale')
+```
+
+```{r}
+summary(sesfith)
+```
+
+```{r}
+autoplot(sesfith) +
+  autolayer(fitted(sesfith), series='Fitted') +
+  ggtitle('SES Fit and Forecast of Hardcover Sales') +
+  xlab('Day') +
+  ylab('Books Sale')  
+```
+
+#### c. Compute the RMSE values for the training data in each case.  
+
+```{r}
+round(accuracy(sesfitp), 2)
+```
+
+#### For the paperback time series, the RMSE is 33.64 books.
+
+```{r}
+round(accuracy(sesfith), 2)
+```
+
+#### For the hardcover time series, the RMSE is 31.93 books.
+
+
+### 7.6 We will continue with the daily sales of paperback and hardcover books in data set books.
+
+#### a. Apply Holt’s linear method to the paperback and hardback series and compute four-day forecasts in each case.
+
+#### Paperback forecast using Holt’s linear method:
+
+```{r}
+holtfitp <- holt(books[,1], h=4)
+forecast(holtfitp)
+```
+
+#### Hardcover  forecast using Holt’s linear method:
+
+```{r}
+holtfith <- holt(books[,2], h=4)
+forecast(holtfith)
+```
+
+#### b. Compare the RMSE measures of Holt’s method for the two series to those of simple exponential smoothing in the previous question. (Remember that Holt’s method is using one more parameter than SES.) Discuss the merits of the two forecasting methods for these data sets.
+
+```{r}
+round(accuracy(holtfitp), 2)
+```
+
+```{r}
+round(accuracy(holtfith), 2)
+```
+
+#### * For the paperback time series, the RMSE is 31.14 books. This is 33.64-31.14 = 2.5 improvement.
+
+#### * For the hardcover time series, the RMSE is 27.19 books. This is 31.93-27.19 = 4.74 improvement.
+
+#### * So in terms of prediction accuracy in the training set, Holt’s method is better than the simple exponential smoothing. 
+#### * Holt’s method takes into account the trend element of a time series, while the SES does not have a trend element. 
+#### * The books dataset clearly exhibit a upward trend. Therefore, Holt’s method is more appropriate.
+
+#### c. Compare the forecasts for the two series using both methods. Which do you think is best?
+
+```{r}
+sesfitp <- ses(books[,1], h=4)
+sesfith <- ses(books[,1], h=4)
+```
+
+```{r}
+autoplot(books[,1]) +
+  autolayer(holtfitp, series='Holts Method', PI=F) +
+  autolayer(sesfitp, series='Simple ETS', PI=F) +
+  ggtitle('Paperback Sales') +
+  xlab('Day') +
+  ylab('Books Sales') +
+  guides(colour=guide_legend(title="Forecast"))
+```
+
+```{r}
+autoplot(books[,2]) +
+  autolayer(holtfith, series='Holts Method', PI=F) +
+  autolayer(sesfith, series='Simple ETS', PI=F) +
+  ggtitle('Hardcover Sales') +
+  xlab('Day') +
+  ylab('Books Sales') +
+  guides(colour=guide_legend(title="Forecast"))  
+```
+
+#### * I think that the Holt’s method is better, for the reasons explained above. 
+#### * The simple ETS method will forecast a constant value without taking account trend, while Holt’s method does.
+
+#### d. Calculate a 95% prediction interval for the first forecast for each series, using the RMSE values and assuming normal errors. Compare your intervals with those produced using ses and holt.
+
+#### Below, I constructed a table to show the first forecast results. The “Calculated” column is calculated using point forecast from Holt’s method and +/- 1.96 * RMSE.
+
+```{r}
+rmsep <- 31.14
+ptholtp <- 209.4668
+ptsesp <- 207.1097
+lowerp <- ptholtp - 1.96 * rmsep
+upperp <- ptholtp + 1.96 * rmsep
+holtlowerp <- 143.9130
+holtupperp <- 275.0205
+seslowerp <- 138.8670
+sesupperp <- 275.3523
+
+rmseh <- 27.19
+ptholth <- 250.1739
+ptsesh <- 239.5601
+lowerh <- ptholth - 1.96 * rmseh
+upperh <- ptholth + 1.96 * rmseh
+holtlowerh <- 192.9222
+holtupperh <- 307.4256
+seslowerh <- 174.7799
+sesupperh <- 304.3403
+
+df <- data.frame(c(ptholtp, lowerp, upperp), c(ptholtp, holtlowerp, holtupperp), c(ptsesp, seslowerp, sesupperp), c(ptholth, lowerh, upperh), c(ptholth, holtlowerh, holtupperh), c(ptsesh, seslowerh, sesupperh))
+df[4,] <- df[3,] - df[2,]
+colnames(df) <- c('Calculated', 'R - holt', 'R - ses', 'Calculated', 'R - holt', 'R - ses')
+row.names(df) <- c('Point Forecast', 'Lower 95%', 'Upper 95%', 'Interval Range')
+
+library(kableExtra)
+
+kable(df) %>% 
+  kable_styling(bootstrap_options = c("striped", "hover", "condensed", "responsive")) %>% 
+  add_header_above(c(' ', 'Paperback Forecast' = 3, 'Hardcover Forecost' = 3))
+```
+
+#### From the interval range, it appears that the interval calculated using RMSE is slightly narrower than R calculated using holt() and ses().
+
+### 7.7 For this exercise use data set eggs, the price of a dozen eggs in the United States from 1900–1993. Experiment with the various options in the holt() function to see how much the forecasts change with damped trend, or with a Box-Cox transformation. Try to develop an intuition of what each argument is doing to the forecasts.
+
+### [Hint: use h=100 when calling holt() so you can clearly see the differences between the various options when plotting the forecasts.]
+
+### Which model gives the best RMSE?
+
+#### Below, I experimented with the default holt() and the 3 options of the function. The damped=TRUE will use a damped trend. The exponential=TRUE will use an exponential trend. The lambda="auto" will turn on Box-Cox transformation for the data and I will also use biasadj=TRUE to get the mean forecast (instead of the median).
+
+```{r}
+help(eggs)
+```
+
+```{r}
+default <- holt(eggs, h=100)
+damped <- holt(eggs, h=100, damped = T)
+exponential <- holt(eggs, h=100, exponential = T)
+lambda <- holt(eggs, h=100, lambda = 'auto', biasadj = T)
+da_ex <- holt(eggs, h=100, exponential = T, damped = T)
+da_la <- holt(eggs, h=100, damped = T, lambda = 'auto', biasadj = T) 
+```
+
+```{r}
+autoplot(eggs) +
+  autolayer(default, series='Default', PI=F) +
+  autolayer(damped, series='Damped', PI=F) +
+  autolayer(exponential, series='Exponential', PI=F) +
+  autolayer(lambda, series='Box-Cox Transformed', PI=F) +
+  autolayer(da_ex, series='Damped & Exponential', PI=F) +
+  autolayer(da_la, series='Damped & Box-Cox', PI=F) +
+  ggtitle('Forecast of US Eggs Prices') +
+  xlab('Year') +
+  ylab('Price of Dozen Eggs')  
+```
+
+#### * From the plot, you can see that the default holt() is using linear tread for its forecast. The forecast value is a straight line and can go to negative. The damped trend seems to damp the forecast very quickly into a flat, horizontal line. The exponential trend forecast appears to be very close to the Box-Cox transformed prediction. And they both shows much more gentle decline than the damped trend method.
+
+#### * I also tried 2 combination of the options. The damped and exponential options combine will produce a line similar to damped line. It seems the damped effect out-weights the exponential effect. The damped and Box-Cox transformed produces an increase forecast - which clearly does not make sense.
+
+#### * Below are the accuracy for the forecasts:
+```{r}
+df <- rbind(accuracy(default), accuracy(damped), accuracy(exponential), accuracy(lambda), accuracy(da_ex), accuracy(da_la))
+row.names(df) <- c('Default', 'Damped', 'Exponential', 'Box-Cox', 'Damped & Exponential', 'Damped & Box-Cox')
+kable(df) %>% 
+  kable_styling(bootstrap_options = c("striped", "hover", "condensed", "responsive"))  
+```
+
+#### * From the table above, the Box-Cox transformed holt() forecast has the lowest RMSE.
+
+### 7.8 Recall your retail time series data (from Exercise 3 in Section 2.10).
+```{r}
+retaildata <- readxl::read_excel("retail.xlsx", skip=1)
+```
+
+```{r}
+myts <- ts(retaildata[,"A3349873A"],
+  frequency=12, start=c(1982,4))
+```
+
+#### a. Why is multiplicative seasonality necessary for this series?
+
+```{r}
+autoplot(myts) +
+  ggtitle('Turnover; New South Wales; Other retailing') +
+  ylab('Turnover')
+```
+
+
+#### From the plot, it is apparent that the seasonal variation increases porportionally with time. Therefore, multiplicative seasonality is necessary.
+
+#### b. Apply Holt-Winters’ multiplicative method to the data. Experiment with making the trend damped.
+
+#### Holt-Winter’s multiplicative method, with undamped trend:
+
+```{r}
+fit1 <- hw(myts, seasonal='multiplicative', damped=F)
+summary(fit1)
+```
+
+#### Holt-Winter’s multiplicative method, with damped trend:
+
+```{r}
+fit2 <- hw(myts, seasonal='multiplicative', damped=T)
+summary(fit2)
+```
+
+```{r}
+autoplot(myts) +
+  autolayer(fit1, PI=F, series='Not damped') +
+  autolayer(fit2, PI=F, series='Damped Trend') +
+  guides(colour=guide_legend(title="Forecast")) +
+  ggtitle("Turnover Forecast - Holt-Winter's Multiplicative Method") +
+  ylab('Turnover')
+```
+
+#### c. Compare the RMSE of the one-step forecasts from the two methods. Which do you prefer?
+
+#### Accuracy of undamped trend fit:
+```{r}
+accuracy(fit1)
+```
+
+#### Accuracy of damped trend fit:
+```{r}
+accuracy(fit2)
+```
+#### * It seems the undamped trend fit has better RMSE. 
+#### * I prefer the undamped fit, based on the RMSe and also on the plot above, where it shows that the undamped trend seems to show slight increase prediction that tracks the general increasing trend better than the damped trend.
+
+#### d. Check that the residuals from the best method look like white noise.
+```{r}
+checkresiduals(fit1)
+```
+
+```{r}
+autoplot(residuals(fit1)) +
+  ggtitle('Residuals') +
+  ylab('') 
+```
+
+#### * This appears to be indeed white noise, with occassional spikes.
+
+#### e. Now find the test set RMSE, while training the model to the end of 2010. Can you beat the seasonal naïve approach from Exercise 8 in Section 3.7?
+
+#### The three methods used with the training set are:
+
+#### * Seasonal Naïve
+#### * Holt-Winter’s Multiplicative Trend (Holt-Winter 1)
+#### * Holt-Winter’s Additive Trend, with Box-Cox Transform (Holt-Winter 2)
+
+```{r}
+train <- window(myts, end=c(2010, 12))
+test <- window(myts, start=c(2011,1))
+```
+
+```{r}
+autoplot(myts) +
+  autolayer(train, series="Training") +
+  autolayer(test, series="Test") +
+  ggtitle('Train-Test Split') +
+  ylab('Turnover')
+```
+
+```{r}
+fit_snaive <- snaive(train, h=36)
+fit1_hw <- hw(train, h=36, seasonal='multiplicative', damped=F)
+fit2_hw <- hw(train, h=36, seasonal='additive', damped=F, lambda='auto')
+```
+
+```{r}
+autoplot(test, series='Ground Truth') +
+  autolayer(fit_snaive, series='Seasonal Naive Forecast', PI=F) +
+  autolayer(fit1_hw, series="Holt-Winter's Forecast 1", PI=F) +
+  autolayer(fit2_hw, series="Holt-Winter's Forecast 2", PI=F) +
+  guides(colour=guide_legend(title="Legend")) +
+  ggtitle('Test Set Forecast') +
+  ylab('Turnover')
+```
+
+```{r}
+library(Metrics)
+df <- c(rmse(test, fit_snaive$mean), rmse(test, fit1_hw$mean), rmse(test, fit2_hw$mean))
+names(df) <- c('Seasonal Naive Forecast', "Holt-Winter's Multiplicative Method", 
+               "Holt-Winter's Additive Method with Box-Cox Transform")
+df
+```
+
+#### Therefore the Holt-Winter’s Multiplicative method, with no damping trend, beats the seasonal naive forecast slightly.
+
+### 7.9 For the same retail data, try an STL decomposition applied to the Box-Cox transformed series, followed by ETS on the seasonally adjusted data. How does that compare with your best previous forecasts on the test set?
+
+#### Below, the training set is first Box-Cox transformed, and then decomposed using STL.
+
+```{r}
+train <- ts(as.vector(myts), start=c(1982,4), end=c(2010,12), frequency = 12)
+lambda <- BoxCox.lambda(train)
+paste('Best lambda for Box-Cox Transformation is found to be:', lambda)
+```
+
+```{r}
+train.bc <- BoxCox(train, lambda)
+fit.stl <- stl(train.bc, s.window='periodic', robust=T)
+```
+```{r}
+autoplot(fit.stl) +
+  ggtitle('STL Decomposition')
+```
+
+```{r}
+train.bc.seadj <- train.bc - fit.stl$time.series[,'seasonal']  
+
+autoplot(train.bc, series='Unadjusted Data') +
+  autolayer(train.bc.seadj, series='Seasonally Adjusted') +
+  ylab('')
+```
+
+#### Next, I fit the seasonally adjusted data using ETS, and let ETS automatically search for best fit:
+
+```{r}
+fit.ets <- ets(train.bc.seadj)
+summary(fit.ets)
+```
+
+#### The function found ETS(M,A,N), with multiplicative error, additive trend, and no seasonal component. I then use this to make a forecast on the test set. The forecast is then back transformed using InvBoxCox().
+
+```{r}
+fc1 <- forecast(fit.ets, h=36)$mean
+fc1 <- InvBoxCox(fc1, lambda=lambda)
+fc1
+```
+
+```{r}
+autoplot(test, series='Ground Truth') +
+  autolayer(fc1, series='Forecast') +
+  ylab('')
+```
+
+#### Since there is no seasonal component, the forecast is a straight line trend. The RMSE is found to be:
+
+```{r}
+rmse(test, fc1)
+```
+
+#### This cannot beat the best previous forecast, which has test set RMSE of 94.807.
