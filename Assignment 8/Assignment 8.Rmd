@@ -1,0 +1,290 @@
+---
+title: "Assignment 8"
+author: "Jatin Jain"
+output: html_document
+---
+#### 7.2. Friedman (1991) introduced several benchmark data sets create by sim- ulation. One of these simulations used the following nonlinear equation to create data:
+
+  y = 10sin(πx1x2)+20(x3 −0.5)2 +10x4 +5x5 +N(0,σ2)
+
+#### where the x values are random variables uniformly distributed between [0, 1] (there are also 5 other non-informative variables also created in the simula- tion). The package mlbench contains a function called mlbench.friedman1 that simulates these data:
+
+```{r include=FALSE}
+library(caret)
+```
+
+```{r}
+library(mlbench)
+set.seed(200)
+trainingData <- mlbench.friedman1(200, sd = 1)
+## We convert the 'x' data from a matrix to a data frame
+## One reason is that this will give the columns names.
+trainingData$x <- data.frame(trainingData$x)
+## Look at the data using
+featurePlot(trainingData$x, trainingData$y)
+## or other methods
+```
+
+```{r}
+## This creates a list with a vector 'y' and a matrix
+## of predictors 'x'. Also simulate a large test set to
+## estimate the true error rate with good precision:
+testData <- mlbench.friedman1(5000, sd = 1)
+testData$x <- data.frame(testData$x)
+```
+
+#### Tune several models on these data. For example:
+
+```{r}
+knnModel <- train(x = trainingData$x,
+                  y = trainingData$y,
+                  method = "knn",
+                  preProc = c("center", "scale"),
+                  tuneLength = 10)
+knnModel
+```
+
+```{r}
+knnPred <- predict(knnModel, newdata = testData$x)
+## The function 'postResample' can be used to get the test set 
+## perforamnce values
+postResample(pred = knnPred, obs = testData$y)
+```
+
+```{r}
+library(AppliedPredictiveModeling)
+```
+
+#### Which models appear to give the best performance? Does MARS select the informative predictors (those named X1–X5)?
+
+All of the models built, have the data centered and scaled. The resampling method used here is bootstrapping. After a model is tuned, the test set performance is calculated.
+
+Below, a SVM model with radial basis kernel is tuned over the cost penalty.
+```{r warning = FALSE}
+svmRadialModel <- train(x = trainingData$x,
+                        y = trainingData$y,
+                        method = "svmRadial",
+                        tuneLength=10,
+                        preProc = c("center", "scale"))
+svmRadialModel
+```
+
+```{r}
+svmRadialPred <- predict(svmRadialModel, newdata = testData$x)
+postResample(pred = svmRadialPred, obs = testData$y)
+```
+
+Below is an averaged neural networks model, tuned over the decay and the number of hidden units.
+
+```{r}
+nnetGrid <- expand.grid(.decay=c(0, 0.01, 0.1, 0.5, 0.9),
+                        .size=c(1, 10, 15, 20),
+                        .bag=FALSE)
+
+nnetModel <- train(x = trainingData$x,
+                   y = trainingData$y,
+                   method = "avNNet",
+                   tuneGrid = nnetGrid,
+                   preProc = c("center", "scale"),
+                   trace=FALSE,
+                   linout=TRUE,
+                   maxit=500)
+nnetModel
+```
+
+```{r}
+nnetPred <- predict(nnetModel, newdata = testData$x)
+postResample(pred = nnetPred, obs = testData$y)
+```
+
+Below is a MARS model, tuned over the number of degree and number of terms to remove.
+
+```{r}
+marsGrid <- expand.grid(.degree=1:2,
+                        .nprune=2:20)
+
+marsModel <- train(x = trainingData$x,
+                   y = trainingData$y,
+                   method = "earth",
+                   tuneGrid = marsGrid,
+                   preProc = c("center", "scale"))
+
+marsModel
+```
+
+```{r}
+marsPred <- predict(marsModel, newdata = testData$x)
+postResample(pred = marsPred, obs = testData$y)
+```
+
+It appears that the MARS model is the best, with the lowest test set RMSE. The variable importance in the MARS model are calculated:
+
+```{r}
+varImp(marsModel)
+```
+
+As you can see, the MARS model picked the most informative variables, X1 ~ X5.
+
+#### 7.5. Exercise 6.3 describes data for a chemical manufacturing process. Use the same data imputation, data splitting, and pre-processing steps as before and train several nonlinear regression models.
+
+The missing values in the ChemicalManufacturingProcess data are imputed using the bagImpute method. The train test set are splitted, with 20% of the data assigned to the test set.
+
+```{r}
+data(ChemicalManufacturingProcess)
+```
+
+```{r}
+help(ChemicalManufacturingProcess)
+```
+
+```{r}
+(cmpImpute <- preProcess(ChemicalManufacturingProcess[,-c(1)], method=c('bagImpute')))
+```
+
+```{r}
+cmp <- predict(cmpImpute, ChemicalManufacturingProcess[,-c(1)])
+```
+
+```{r}
+set.seed(1)
+trainRow <- createDataPartition(ChemicalManufacturingProcess$Yield, p=0.8, list=FALSE)
+X.train <- cmp[trainRow, ]
+y.train <- ChemicalManufacturingProcess$Yield[trainRow]
+X.test <- cmp[-trainRow, ]
+y.test <- ChemicalManufacturingProcess$Yield[-trainRow]
+```
+
+Below, 4 nonlinear regression models are trained: KNN, averaged neural networks, MARS, SVM with radial basis kernel. The data are centered and scaled before training. The bootstrapped resampling method is used with 25 repetition.
+
+KNN:
+
+```{r warning = FALSE}
+set.seed(1)
+knnModel <- train(x = X.train,
+                  y = y.train,
+                  method = "knn",
+                  preProc = c("center", "scale"),
+                  tuneLength = 10)
+knnModel
+```
+
+Averaged neural networks:
+
+```{r warning = FALSE}
+nnetGrid <- expand.grid(.decay=c(0, 0.01, 0.1),
+                        .size=c(1, 5, 10),
+                        .bag=FALSE)
+
+set.seed(1)
+nnetModel <- train(x = X.train,
+                   y = y.train,
+                   method = "avNNet",
+                   tuneGrid = nnetGrid,
+                   preProc = c("center", "scale"),
+                   trace=FALSE,
+                   linout=TRUE,
+                   maxit=500)
+nnetModel
+```
+
+MARS:
+
+```{r warning = FALSE}
+marsGrid <- expand.grid(.degree=1:2,
+                        .nprune=2:10)
+
+set.seed(1)
+marsModel <- train(x = X.train,
+                   y = y.train,
+                   method = "earth",
+                   tuneGrid = marsGrid,
+                   preProc = c("center", "scale"))
+marsModel
+```
+
+SVM with radial basis:
+
+```{r warning = FALSE}
+set.seed(1)
+svmRadialModel <- train(x = X.train,
+                        y = y.train,
+                        method = "svmRadial",
+                        tuneLength=10,
+                        preProc = c("center", "scale"))
+svmRadialModel
+```
+
+#### a. Which nonlinear regression model gives the optimal resampling and test set performance?
+
+The resampling performance of all the models are calculated below:
+
+```{r}
+resamp <- resamples(list(KNN=knnModel, NNet=nnetModel, MARS=marsModel, SVM=svmRadialModel))
+summary(resamp)
+```
+
+Looking at the Mean of the RMSE metric, it appears that the SVM model is optimal.
+
+The test set performance is calculated below:
+
+```{r}
+testPerf <- function(models, testData, testTarget) {
+  method <- c()
+  res <- data.frame()
+  for(model in models){
+    method <- c(method, model$method)
+    pred <- predict(model, newdata=testData)
+    res <- rbind(res, t(postResample(pred=pred, obs=testTarget)))
+  }
+  row.names(res) <- method
+  return(res)
+}
+
+models <- list(knnModel, nnetModel, marsModel, svmRadialModel)
+
+performance <- testPerf(models, X.test, y.test)
+performance
+```
+
+The test set performance also suggests that the SVM model is the best, with the least RMSE and MAE, and highest R^2.
+
+```{r}
+(svmModel <- svmRadialModel$finalModel)
+```
+
+#### b. Which predictors are most important in the optimal nonlinear regression model? Do either the biological or process variables dominate the list? How do the top ten important predictors compare to the top ten predictors from the optimal linear model?
+
+The varImp function does not have a model-specific method to calculate feature importance of a SVM radial basis function model. When calling varImp on a SVM RBF model, it uses filterVarImp to evaluate the variable importance by fitting a loess smoother between the outcome and the predictors, and using the R^2 statistic as the metric for variable importance.
+
+```{r}
+topFeatures <- varImp(svmRadialModel)
+topFeatures
+```
+
+6 out of the top 10 ranked predictors are ManufacturingProcess predictors. The top ranking predictor is ManufacturingProcess32. It appears that the ManufacturingProcess predictors are more important.
+
+For the SVM model with radial basis function, there is no direct way of finding the variable importance. Only SVM with linear kernel can be evaluated with regards to variable importance.
+
+#### c. Explore the relationships between the top predictors and the response for the predictors that are unique to the optimal nonlinear regression model. Do these plots reveal intuition about the biological or process predictors and their relationship with yield?
+
+Below, I extracted the 128 support vectors as determined by the SVM model, and then plotted those vectors with the top 10 variables ranked by the loess R^2 method. These plots show that these top features do have noticeable relationship with the target variable. For example, you can see that as variable ManufacturingProcess32 increases, the Yield increases. However, under the context of SVM RBF, the plots do not reveal intuition about their relationship with yield. The SVM model with radial basis function transforms the original data into a higher dimensional space of transformed features. It is difficult to visualize how each feature contribute to the model in the higher dimensional space.
+
+```{r}
+library(kernlab)
+```
+
+```{r}
+vectorIndex <- SVindex(svmModel)
+supportVectorX <- X.train[vectorIndex,]
+supportVectorY <- y.train[vectorIndex]
+
+topFeatures <- topFeatures$importance
+topFeatures$predictor <- row.names(topFeatures)
+topFeatures <- topFeatures[order(topFeatures$Overall, decreasing = T), ]
+topFeatures <- row.names(topFeatures)
+
+for (i in 1:10){
+  plot(x=supportVectorX[, topFeatures[i]], y=supportVectorY, 
+       xlab=topFeatures[i], ylab='Yield')
+}
+```
